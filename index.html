@@ -58,7 +58,7 @@
           { facingMode: 'environment' },
           { fps: 10, qrbox: 250 },
           async (decodedText) => {
-            result.textContent = 'QR code successfully scanned!';
+           result.textContent = "Scanned ticket: " + decodedText;
             await scanner.stop();
             scanner = null;
             button.disabled = false;
