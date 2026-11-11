@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Ticket Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+      font-size: 20px;
+    }
+    button {
+      width: 100%;
+      max-width: 400px;
+      padding: 18px;
+      font-size: 22px;
+      background: #0875d1;
+      color: white;
+      border: none;
+      border-radius: 10px;
+    }
+    #reader {
+      max-width: 450px;
+      margin: 20px auto;
+    }
+    #result {
+      margin: 20px auto;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <h2>LAC Ticket Scanner</h2>
+  <button id="start" onclick="startScanner()">SCAN QR CODE</button>
+  <div id="reader"></div>
+  <div id="result">Camera test — no tickets will be checked in.</div>
+
+  <script>
+    const checkInUrl =
+      'https://script.google.com/macros/s/AKfycby57l4JgeCF8LzDCXj1kn10mmpAFK_ZotoSwSq1oJvO3_Vau2w47r8j7o5MX0mFdwQVrw/exec';
+
+    let scanner = null;
+
+    async function startScanner() {
+      const result = document.getElementById('result');
+      const button = document.getElementById('start');
+
+      button.disabled = true;
+      result.textContent = 'Starting camera...';
+
+      try {
+        scanner = new Html5Qrcode('reader');
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: 250 },
+          async (decodedText) => {
+            result.textContent = 'QR code successfully scanned!';
+            await scanner.stop();
+            scanner = null;
+            button.disabled = false;
+          },
+          () => {}
+        );
+        result.textContent = 'Point camera at a ticket QR code.';
+      } catch (error) {
+        result.textContent = 'Camera error: ' + error;
+        button.disabled = false;
+        scanner = null;
+      }
+    }
+  </script>
+</body>
+</html>
