@@ -62,6 +62,7 @@
 const ticketNumber = ticketUrl.searchParams.get("ticket");
 const ticketCode = ticketUrl.searchParams.get("code");
 result.textContent = "Scanned Ticket #" + ticketNumber;
+ window.location.href = checkInUrl + "?ticket=" + encodeURIComponent(ticketNumber) + "&code=" + encodeURIComponent(ticketCode);           
             await scanner.stop();
             scanner = null;
             button.disabled = false;
