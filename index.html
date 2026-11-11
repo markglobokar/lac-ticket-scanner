@@ -58,7 +58,10 @@
           { facingMode: 'environment' },
           { fps: 10, qrbox: 250 },
           async (decodedText) => {
-           result.textContent = "Scanned ticket: " + decodedText;
+           const ticketUrl = new URL(decodedText);
+const ticketNumber = ticketUrl.searchParams.get("ticket");
+const ticketCode = ticketUrl.searchParams.get("code");
+result.textContent = "Scanned Ticket #" + ticketNumber;
             await scanner.stop();
             scanner = null;
             button.disabled = false;
