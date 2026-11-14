@@ -77,6 +77,8 @@ if (window.opener) {
             await scanner.stop();
             scanner = null;
             button.disabled = false;
+            setTimeout(() => window.close(), 300);
+            
           },
           () => {}
         );
