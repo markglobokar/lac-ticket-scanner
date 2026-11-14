@@ -62,7 +62,18 @@
 const ticketNumber = ticketUrl.searchParams.get("ticket");
 const ticketCode = ticketUrl.searchParams.get("code");
 result.textContent = "Scanned Ticket #" + ticketNumber;
- window.location.href = checkInUrl + "?ticket=" + encodeURIComponent(ticketNumber) + "&code=" + encodeURIComponent(ticketCode);           
+
+if (window.opener) {
+  window.opener.postMessage({
+    type: "LAC_QR_SCAN",
+    ticket: ticketNumber,
+    code: ticketCode
+  }, "*");
+} else {
+  alert("Original check-in page not found.");
+}
+
+          
             await scanner.stop();
             scanner = null;
             button.disabled = false;
