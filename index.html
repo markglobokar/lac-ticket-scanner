@@ -6,63 +6,104 @@
   <title>LAC Ticket Scanner</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
-    * {box-sizing:border-box}
-    html,body {width:100%;margin:0;padding:0;overflow-x:hidden;-webkit-text-size-adjust:100%}
-    body {font-family:Arial,sans-serif;text-align:center;padding:20px 12px;font-size:20px}
-    h2 {font-size:27px}
-    button {width:100%;max-width:400px;padding:18px;font-size:22px;background:#0875d1;color:white;border:0;border-radius:10px;cursor:pointer}
-    button:disabled {opacity:.6}
-    #reader {width:100%;max-width:450px;margin:20px auto}
-    #result {max-width:450px;margin:20px auto;overflow-wrap:anywhere}
+    *{box-sizing:border-box}
+    html,body{width:100%;min-width:0;margin:0;padding:0;overflow-x:hidden;-webkit-text-size-adjust:100%}
+    body{font-family:Arial,Helvetica,sans-serif;text-align:center;background:#edf2f7;color:#14283e;padding:12px;font-size:18px}
+    main{width:100%;max-width:500px;margin:0 auto}
+    header{background:linear-gradient(120deg,#0b315c,#185ca1);color:white;border-radius:14px;padding:17px 12px}
+    h1{font-size:25px;margin:0 0 5px}
+    header p{font-size:14px;margin:0}
+    .card{background:white;border:1px solid #d5e1ec;border-radius:13px;padding:16px 12px;margin-top:12px}
+    #reader{width:100%;max-width:450px;margin:12px auto;overflow:hidden}
+    #reader video{max-width:100%;border-radius:10px}
+    #result{font-size:17px;line-height:1.4;overflow-wrap:anywhere;margin:12px auto;white-space:pre-line}
+    button{width:100%;padding:17px;font-size:18px;font-weight:bold;background:#1769b6;color:white;border:0;border-radius:10px;cursor:pointer;min-height:54px}
+    button:disabled{opacity:.55}
+    .hidden{display:none!important}
+    .muted{font-size:14px;color:#536b82;margin:10px auto}
+    .error{background:#ffe5e8;color:#981926;border-radius:9px;padding:13px}
   </style>
 </head>
 <body>
-  <h2>LAC Ticket Scanner</h2>
-  <button id="start" onclick="startScanner()">SCAN QR CODE</button>
-  <div id="reader"></div>
-  <div id="result" role="status"></div>
+  <main>
+    <header>
+      <h1>LAC Ticket Scanner</h1>
+      <p>2027 Hangover Dance</p>
+    </header>
+    <section class="card">
+      <div id="result" role="status" aria-live="polite">Opening camera automatically...</div>
+      <div id="reader"></div>
+      <button id="retry" class="hidden" type="button" onclick="startScanner()">START CAMERA</button>
+      <p class="muted">If asked, allow camera access. Point the camera at a ticket QR code.</p>
+    </section>
+  </main>
   <script>
-    let scanner=null;
-    let processing=false;
+    let scanner = null;
+    let starting = false;
+    let processing = false;
+    const result = document.getElementById('result');
+    const retry = document.getElementById('retry');
+
     async function startScanner() {
-      const result=document.getElementById('result');
-      const button=document.getElementById('start');
-      button.disabled=true;
-      processing=false;
-      result.textContent='Starting camera...';
+      if (starting || processing) return;
+      starting = true;
+      retry.classList.add('hidden');
+      result.className = '';
+      result.textContent = 'Opening camera automatically...';
+
       try {
-        scanner=new Html5Qrcode('reader');
+        if (typeof Html5Qrcode === 'undefined') {
+          throw new Error('Camera library did not load. Check internet connection and retry.');
+        }
+        if (scanner) {
+          try { await scanner.stop(); } catch(e) {}
+          try { scanner.clear(); } catch(e) {}
+          scanner = null;
+        }
+        scanner = new Html5Qrcode('reader');
         await scanner.start(
           {facingMode:'environment'},
-          {fps:10,qrbox:{width:250,height:250}},
-          async decodedText => {
-            if(processing)return;
-            processing=true;
-            // The QR text is sent verbatim; the parent app verifies the ticket and PIN.
-            const raw=String(decodedText||'').trim();
-            result.textContent='QR code captured. Returning to check-in...';
-            try {await scanner.stop();}catch(e){}
-            try {scanner.clear();}catch(e){}
-            scanner=null;
-            if(window.opener && !window.opener.closed){
-              window.opener.postMessage({type:'LAC_QR_SCAN',raw:raw},'*');
-              setTimeout(()=>window.close(),500);
+          {fps:10, qrbox: function(w,h) {const s=Math.min(250,w-24,h-24); return {width:Math.max(100,s),height:Math.max(100,s)};}},
+          async function(decodedText) {
+            if (processing) return;
+            processing = true;
+            const raw = String(decodedText || '').trim();
+            result.textContent = 'QR code captured. Returning to check-in...';
+            try { await scanner.stop(); } catch(e) {}
+            try { scanner.clear(); } catch(e) {}
+            scanner = null;
+            if (window.opener && !window.opener.closed) {
+              // The Apps Script check-in page verifies the unchanged QR text,
+              // PIN, door, and ticket status. This GitHub page never admits anyone.
+              window.opener.postMessage({type:'LAC_QR_SCAN',raw:raw}, '*');
+              setTimeout(function(){window.close();},500);
             } else {
-              result.textContent='Return to the LAC check-in page and tap Alternate QR Camera to scan.';
-              button.disabled=false;
-              processing=false;
+              result.className = 'error';
+              result.textContent = 'Original LAC check-in page was not found. Return to the check-in page and select SCAN QR CODE again.';
+              retry.classList.remove('hidden');
+              processing = false;
             }
           },
-          ()=>{}
+          function(){}
         );
-        result.textContent='Point your camera at an LAC ticket QR code.';
+        if (!processing) result.textContent = 'Camera ready. Point at an LAC ticket QR code.';
       } catch(error) {
-        result.textContent='Camera error: '+(error.message||error);
-        button.disabled=false;
-        processing=false;
-        scanner=null;
+        if (scanner) {
+          try { await scanner.stop(); } catch(e) {}
+          try { scanner.clear(); } catch(e) {}
+          scanner = null;
+        }
+        result.className = 'error';
+        result.textContent = 'Camera could not start automatically: ' + (error.message || error) + '\nTap START CAMERA to retry.';
+        retry.classList.remove('hidden');
+      } finally {
+        starting = false;
       }
     }
+
+    // Open the camera as soon as this GitHub page loads, with no second tap.
+    // Browsers can still require camera permission or a manual retry.
+    window.addEventListener('load', startScanner);
   </script>
 </body>
 </html>
