@@ -2,91 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>LAC Ticket Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
-      font-size: 20px;
-    }
-    button {
-      width: 100%;
-      max-width: 400px;
-      padding: 18px;
-      font-size: 22px;
-      background: #0875d1;
-      color: white;
-      border: none;
-      border-radius: 10px;
-    }
-    #reader {
-      max-width: 450px;
-      margin: 20px auto;
-    }
-    #result {
-      margin: 20px auto;
-      overflow-wrap: anywhere;
-    }
+    * {box-sizing:border-box}
+    html,body {width:100%;margin:0;padding:0;overflow-x:hidden;-webkit-text-size-adjust:100%}
+    body {font-family:Arial,sans-serif;text-align:center;padding:20px 12px;font-size:20px}
+    h2 {font-size:27px}
+    button {width:100%;max-width:400px;padding:18px;font-size:22px;background:#0875d1;color:white;border:0;border-radius:10px;cursor:pointer}
+    button:disabled {opacity:.6}
+    #reader {width:100%;max-width:450px;margin:20px auto}
+    #result {max-width:450px;margin:20px auto;overflow-wrap:anywhere}
   </style>
 </head>
 <body>
   <h2>LAC Ticket Scanner</h2>
   <button id="start" onclick="startScanner()">SCAN QR CODE</button>
   <div id="reader"></div>
- <div id="result"></div>
-
+  <div id="result" role="status"></div>
   <script>
-    const checkInUrl =
-      'https://script.google.com/macros/s/AKfycby57l4JgeCF8LzDCXj1kn10mmpAFK_ZotoSwSq1oJvO3_Vau2w47r8j7o5MX0mFdwQVrw/exec';
-
-    let scanner = null;
-
+    let scanner=null;
+    let processing=false;
     async function startScanner() {
-      const result = document.getElementById('result');
-      const button = document.getElementById('start');
-
-      button.disabled = true;
-      result.textContent = 'Starting camera...';
-
+      const result=document.getElementById('result');
+      const button=document.getElementById('start');
+      button.disabled=true;
+      processing=false;
+      result.textContent='Starting camera...';
       try {
-        scanner = new Html5Qrcode('reader');
-
+        scanner=new Html5Qrcode('reader');
         await scanner.start(
-          { facingMode: 'environment' },
-          { fps: 10, qrbox: 250 },
-          async (decodedText) => {
-           const ticketUrl = new URL(decodedText);
-const ticketNumber = ticketUrl.searchParams.get("ticket");
-const ticketCode = ticketUrl.searchParams.get("code");
-result.textContent = "Scanned Ticket #" + ticketNumber;
-
-if (window.opener) {
-  window.opener.postMessage({
-    type: "LAC_QR_SCAN",
-    ticket: ticketNumber,
-    code: ticketCode
-  }, "*");
-} else {
-  alert("Original check-in page not found.");
-}
-
-          
-            await scanner.stop();
-            scanner = null;
-            button.disabled = false;
-            setTimeout(() => window.close(), 300);
-            
+          {facingMode:'environment'},
+          {fps:10,qrbox:{width:250,height:250}},
+          async decodedText => {
+            if(processing)return;
+            processing=true;
+            // The QR text is sent verbatim; the parent app verifies the ticket and PIN.
+            const raw=String(decodedText||'').trim();
+            result.textContent='QR code captured. Returning to check-in...';
+            try {await scanner.stop();}catch(e){}
+            try {scanner.clear();}catch(e){}
+            scanner=null;
+            if(window.opener && !window.opener.closed){
+              window.opener.postMessage({type:'LAC_QR_SCAN',raw:raw},'*');
+              setTimeout(()=>window.close(),500);
+            } else {
+              result.textContent='Return to the LAC check-in page and tap Alternate QR Camera to scan.';
+              button.disabled=false;
+              processing=false;
+            }
           },
-          () => {}
+          ()=>{}
         );
-       
-      } catch (error) {
-        result.textContent = 'Camera error: ' + error;
-        button.disabled = false;
-        scanner = null;
+        result.textContent='Point your camera at an LAC ticket QR code.';
+      } catch(error) {
+        result.textContent='Camera error: '+(error.message||error);
+        button.disabled=false;
+        processing=false;
+        scanner=null;
       }
     }
   </script>
